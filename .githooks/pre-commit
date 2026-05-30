@@ -1,0 +1,19 @@
+#!/bin/sh
+# Block any commit that introduces a secret into staged changes.
+# Enabled per-clone with: git config core.hooksPath .githooks
+# Do not bypass with --no-verify (project policy in CLAUDE.md).
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "ERROR: gitleaks is not installed. Run: brew install gitleaks" >&2
+  echo "Commit blocked: the secret scanner must be present." >&2
+  exit 1
+fi
+
+gitleaks git --staged --redact --verbose
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "Commit blocked: gitleaks flagged a potential secret in staged changes." >&2
+  echo "Review the finding above. If it is a false positive, add a narrowly-scoped" >&2
+  echo "rule to .gitleaks.toml or a fingerprint to .gitleaksignore." >&2
+  exit 1
+fi

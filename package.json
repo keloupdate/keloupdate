@@ -1,0 +1,50 @@
+{
+  "name": "kelo",
+  "version": "0.1.0",
+  "description": "Hot updates for Electron apps. Push code to running apps in 5 seconds.",
+  "type": "module",
+  "bin": {
+    "kelo": "./dist/cli.js"
+  },
+  "main": "./dist/updater.js",
+  "exports": {
+    ".": "./dist/updater.js",
+    "./react": "./dist/react.js",
+    "./launcher": "./dist/launcher.cjs"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "files": [
+    "dist",
+    "launcher.cjs"
+  ],
+  "keywords": [
+    "electron",
+    "hot-update",
+    "ota",
+    "updater",
+    "deploy"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "tus-js-client": "^4.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "electron": ">=25.0.0",
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}
