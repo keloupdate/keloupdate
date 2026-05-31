@@ -35,6 +35,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Cache electron-builder's downloaded binaries (NSIS/winCodeSign) so they
+      # are fetched once and reused — removes the transient download flake.
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron-builder/Cache
+            ~/Library/Caches/electron-builder
+          key: electron-builder-${{ runner.os }}-26.8.1
       - name: P1 — update upload round-trip
         run: npm run test:e2e:cli
       - name: update + publish (packaged Electron app E2E)
