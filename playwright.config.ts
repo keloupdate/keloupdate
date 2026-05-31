@@ -8,5 +8,8 @@ export default defineConfig({
   timeout: 180_000,
   fullyParallel: false,
   workers: 1,
+  // electron-builder downloads NSIS/winCodeSign from GitHub releases, which can
+  // hiccup transiently on CI. Retry failed E2E runs there (not locally).
+  retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
 })
