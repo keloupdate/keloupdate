@@ -1,5 +1,10 @@
 node_modules/
 dist/
+dist-electron/
+release/
+kelo.config.json
+test-results/
+playwright-report/
 .env
 .env.*
 .DS_Store

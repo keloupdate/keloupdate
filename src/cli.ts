@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 import { createHash } from 'crypto'
 import { execSync } from 'child_process'
 import { join } from 'path'
@@ -149,6 +149,32 @@ function ask(question: string): Promise<string> {
   })
 }
 
+function getFlagValue(name: string): string | null {
+  const i = args.indexOf(name)
+  if (i >= 0 && args[i + 1] && !args[i + 1].startsWith('-')) return args[i + 1]
+  return null
+}
+
+// Find build artifacts whose filename matches any of the patterns, across the
+// dirs electron-builder may write to (v26+ uses dist/; older uses release/).
+function findArtifacts(searchDirs: string[], patterns: RegExp[]): string[] {
+  const found: string[] = []
+  for (const dir of searchDirs) {
+    if (!existsSync(dir)) continue
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isFile() && patterns.some((re) => re.test(entry))) found.push(full)
+    }
+  }
+  return found
+}
+
 // ─── Commands ───
 
 async function init() {
@@ -238,6 +264,102 @@ async function update() {
   console.log(`\n=== Done! v${version} shipped in ${elapsed}s ===\n`)
 }
 
+async function publish() {
+  const config = loadConfig()
+  const platform = config.platform || getPlatform()
+  const startTime = Date.now()
+
+  // Guard: building an installer for another OS produces the wrong-arch native
+  // binary and electron-builder fails. Fail fast with a clear message instead.
+  if (platform === 'windows' && process.platform !== 'win32') {
+    console.error('ERROR: `kelo publish` for Windows must run on Windows.')
+    process.exit(1)
+  }
+  if (platform === 'mac' && process.platform !== 'darwin') {
+    console.error('ERROR: `kelo publish` for Mac must run on macOS.')
+    process.exit(1)
+  }
+
+  const explicit = getFlagValue('--version')
+  const latest = await getLatestVersion(config, platform)
+  const version = explicit || (latest ? bumpVersion(latest, getBumpType(args)) : '1.0.0')
+
+  console.log(`\n=> kelo publish v${version} (${platform})\n`)
+
+  // electron-builder reads the version from package.json, so we temporarily
+  // write it there — and restore it on EVERY exit path (success, throw, signal)
+  // so the working tree is never left dirty.
+  const pkgPath = join(process.cwd(), 'package.json')
+  const originalPkg = readFileSync(pkgPath, 'utf-8')
+  let restored = false
+  const restore = () => {
+    if (restored) return
+    restored = true
+    try {
+      writeFileSync(pkgPath, originalPkg)
+    } catch (e: any) {
+      console.warn('[kelo] Could not restore package.json:', e.message)
+    }
+  }
+  process.on('exit', restore)
+
+  try {
+    const pkg = JSON.parse(originalPkg)
+    pkg.version = version
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+
+    console.log('[1] Building...')
+    if (config.buildCommand) {
+      execSync(config.buildCommand, { stdio: 'inherit', cwd: process.cwd() })
+    }
+
+    console.log('[2] Packaging with electron-builder...')
+    const ebFlag = platform === 'windows' ? '--win' : '--mac'
+    execSync(`npx electron-builder ${ebFlag} --config.npmRebuild=false`, {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+      env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' },
+    })
+
+    console.log('[3] Locating installer + update feed...')
+    const searchDirs = [
+      join(process.cwd(), 'dist'),
+      join(process.cwd(), 'release', version),
+      join(process.cwd(), 'release'),
+    ]
+    const patterns =
+      platform === 'windows'
+        ? [/^latest\.yml$/, /Setup.*\.exe$/, /\.exe$/, /\.exe\.blockmap$/]
+        : [/^latest-mac\.yml$/, /-mac\.zip$/, /\.dmg$/]
+    const artifacts = findArtifacts(searchDirs, patterns)
+    if (artifacts.length === 0) {
+      throw new Error(`No publish artifacts found in: ${searchDirs.join(', ')}`)
+    }
+
+    // The primary installer is the .exe / .dmg / -mac.zip; the rest is the feed.
+    const installer =
+      artifacts.find((a) => /Setup.*\.exe$|\.dmg$|-mac\.zip$/.test(a)) || artifacts[0]
+    const sha256 = createHash('sha256').update(readFileSync(installer)).digest('hex')
+
+    console.log('[4] Uploading installer + feed...')
+    let downloadUrl = ''
+    for (const artifact of artifacts) {
+      const name = artifact.split(/[/\\]/).pop()!
+      const storagePath = `publish/${platform}/${version}/${name}`
+      const url = await uploadToStorage(config, storagePath, readFileSync(artifact))
+      if (artifact === installer) downloadUrl = url
+    }
+
+    await insertRelease(config, version, downloadUrl, 'publish', platform, sha256)
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+    console.log(`\n=== Done! v${version} published in ${elapsed}s ===\n`)
+  } finally {
+    restore()
+    process.removeListener('exit', restore)
+  }
+}
+
 async function status() {
   const config = loadConfig()
   const platform = config.platform || getPlatform()
@@ -262,7 +384,7 @@ async function main() {
       await status()
       break
     case 'publish':
-      console.log('kelo publish — not yet implemented (use electron-builder directly for now)')
+      await publish()
       break
     default:
       console.log(`
