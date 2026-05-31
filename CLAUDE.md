@@ -23,7 +23,7 @@
 
 - This rigor applies to every single push, not just the first commit; never relax it because earlier pushes were clean.
 - `main` is a PROTECTED branch: direct pushes and force-pushes are disabled on the remote — the ONLY way anything reaches `main` is a reviewed pull request.
-- Never `git push` to `main` directly under any circumstances; do all work on `dev` (or a feature branch off `dev`) and open a PR.
+- Never `git push` to `main` directly under any circumstances; for each change create a short-lived feature branch off `main`, open a PR, and delete the branch after it merges (GitHub Flow — no long-lived `dev` branch to keep in sync).
 - Squash-merge PRs so each change lands on `main` as one clean commit; never let iteration/debugging commits reach `main`.
 - Never `git commit` or `git push` (any branch) without explicit human approval for that specific action, every time.
 - Before any push or PR merge, review the FULL diff line by line (human + AI together), exactly as the first commit was reviewed.
