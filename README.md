@@ -166,10 +166,13 @@ CI runs the unit tests plus the full `update`/`publish` E2E on `macos-latest` an
 
 ### Branch workflow
 
-`main` is protected and **PR-only**. Do work on `dev` (or a feature branch off `dev`) and open a PR; PRs are **squash-merged** so each change lands on `main` as one commit. After a squash-merge, `dev` has divergent history but identical content — resync it:
+`main` is protected and **PR-only** (GitHub Flow). For each change, branch off `main`, open a PR, and let it **squash-merge** so the change lands as one clean commit — then delete the branch. No long-lived branches, nothing to keep in sync.
 
 ```sh
-git checkout dev && git fetch && git reset --hard origin/main && git push --force-with-lease origin dev
+git checkout main && git pull
+git checkout -b feat/my-change
+# ...commit, push, open a PR, squash-merge it...
+git branch -d feat/my-change   # delete after merge
 ```
 
 ## License
