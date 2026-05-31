@@ -21,7 +21,9 @@ export async function buildAndPackageFixture(marker: string): Promise<string> {
     env: { ...process.env, KELO_TEST_MARKER: marker },
   })
   const flag = process.platform === 'darwin' ? '--mac' : process.platform === 'win32' ? '--win' : '--linux'
-  await execFileAsync('npx', ['electron-builder', '--dir', flag], {
+  // On Windows the launcher is npx.cmd; execFile (no shell) can't resolve bare "npx".
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+  await execFileAsync(npx, ['electron-builder', '--dir', flag], {
     cwd: FIXTURE,
     env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' },
     maxBuffer: 64 * 1024 * 1024,
