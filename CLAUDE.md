@@ -18,3 +18,14 @@
 - The npm tarball ships `dist/` even though it is gitignored — run the leak scan over `dist/` before `npm publish`, not just over the git diff.
 - Keep all real config in `kelo.config.json` (gitignored) and env vars; in tracked code use only placeholder hosts like `example.co`, never a real Supabase URL or key, even as an example.
 - Enable GitHub secret-scanning Push Protection on the remote before the first push, as the backstop for anything that bypasses local hooks.
+
+## Push & branch discipline (treat EVERY push religiously — no exceptions)
+
+- This rigor applies to every single push, not just the first commit; never relax it because earlier pushes were clean.
+- `main` is a PROTECTED branch: direct pushes and force-pushes are disabled on the remote — the ONLY way anything reaches `main` is a reviewed pull request.
+- Never `git push` to `main` directly under any circumstances; do all work on `dev` (or a feature branch off `dev`) and open a PR.
+- Squash-merge PRs so each change lands on `main` as one clean commit; never let iteration/debugging commits reach `main`.
+- Never `git commit` or `git push` (any branch) without explicit human approval for that specific action, every time.
+- Before any push or PR merge, review the FULL diff line by line (human + AI together), exactly as the first commit was reviewed.
+- Never force-push any shared branch; the only acceptable force-push was the one-time history cleanup, and `main` protection now forbids it entirely.
+- Before pushing or opening a PR, state which branch and which commits will move, and wait for an explicit go-ahead.

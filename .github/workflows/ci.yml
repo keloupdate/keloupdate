@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Unit tests (security guards)
+        run: npm test
+
+  e2e:
+    # The 4 tests that matter, each on its own OS:
+    #   macos-latest   -> update mac, publish mac
+    #   windows-latest -> update windows, publish windows
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: P1 — update upload round-trip
+        run: npm run test:e2e:cli
+      - name: update + publish (packaged Electron app E2E)
+        run: npx playwright test
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
